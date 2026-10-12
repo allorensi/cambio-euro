@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cambio Euro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una columna centrada; conversor arriba, gráfico 30 días, lista de todas las divisas */
+:root {
+  --bg: #f6f7fa;
+  --surface: #ffffff;
+  --fg: #0f1730;
+  --muted: #646d86;
+  --line: #e2e5ee;
+  --accent: #1d3fb8;      /* azul europeo */
+  --gold: #d9a800;        /* estrellas de la bandera */
+  --up: #12805c;
+  --down: #c2362f;
+  --font-ui: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-num: "Geist Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0f1c; --surface: #131a2c; --fg: #e8ebf4; --muted: #8d96b0;
+    --line: #232c44; --accent: #7d97ff; --gold: #f2c53d; --up: #3ccf95; --down: #ff7b72;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0f1c; --surface: #131a2c; --fg: #e8ebf4; --muted: #8d96b0;
+  --line: #232c44; --accent: #7d97ff; --gold: #f2c53d; --up: #3ccf95; --down: #ff7b72;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 var(--font-ui);
+  padding-inline: 16px;
+  padding-block: 40px 64px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 640px; margin: 0 auto; display: grid; gap: 28px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: -0.01em; }
+.mark {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); color: var(--gold);
+  display: grid; place-items: center; font-size: 16px; font-weight: 600;
+}
+.status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); }
+.dot.err { background: var(--down); }
+.dot.loading { background: var(--gold); animation: pulse 1s infinite alternate; }
+@keyframes pulse { to { opacity: .3; } }
+
+/* Conversor */
+.converter {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  display: grid; gap: 18px;
+}
+.row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+label.cap { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.field { display: grid; gap: 6px; min-width: 0; }
+input[type="text"], input[type="search"], select {
+  font: inherit; color: var(--fg); background: transparent;
+  border: none; outline: none; width: 100%; min-width: 0;
+}
+#amount { font-family: var(--font-num); font-size: clamp(30px, 8vw, 44px); font-weight: 500; letter-spacing: -0.02em; }
+.result { font-family: var(--font-num); font-size: clamp(30px, 8vw, 44px); font-weight: 500; letter-spacing: -0.02em; color: var(--accent); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 14px; font-weight: 600; background: var(--bg);
+}
+.pill select { font-weight: 600; cursor: pointer; padding-right: 4px; }
+.pill select option { background: var(--surface); color: var(--fg); }
+.divider { display: flex; align-items: center; gap: 12px; color: var(--muted); }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+#swap {
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+  width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 16px;
+  display: grid; place-items: center; transition: transform .25s;
+}
+#swap:hover { transform: rotate(180deg); border-color: var(--accent); color: var(--accent); }
+.rate-line { font-size: 13px; color: var(--muted); font-family: var(--font-num); }
+
+/* Gráfico */
+.chart-card { display: grid; gap: 10px; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.chart-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.change { font-family: var(--font-num); font-size: 13px; }
+.change.up { color: var(--up); } .change.down { color: var(--down); }
+.ranges { display: flex; gap: 4px; }
+.ranges button {
+  font: 500 12px var(--font-ui); color: var(--muted); background: none;
+  border: 1px solid transparent; border-radius: 999px; padding: 4px 10px; cursor: pointer;
+}
+.ranges button[aria-pressed="true"] { color: var(--fg); border-color: var(--line); background: var(--surface); }
+svg.chart { width: 100%; height: 160px; display: block; overflow: visible; }
+.axis { font: 11px var(--font-num); fill: var(--muted); }
+
+/* Lista */
+.list-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.list-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.search {
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
+  background: var(--surface); width: min(220px, 100%);
+}
+ul.rates { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.rates li {
+  display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center;
+  padding: 12px 4px; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+ul.rates li:hover, ul.rates li:focus-visible { background: var(--surface); outline: none; }
+ul.rates li.active .code { color: var(--accent); }
+.code { font-family: var(--font-num); font-weight: 500; }
+.name { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.val { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+footer { color: var(--muted); font-size: 12px; line-height: 1.6; }
+footer a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="mark">€</span>Cambio Euro</div>
+    <div class="status" aria-live="polite"><span class="dot loading" id="dot"></span><span id="status">Cargando tipos…</span></div>
+  </header>
+
+  <section class="converter" aria-label="Conversor">
+    <div class="row">
+      <div class="field">
+        <label class="cap" for="amount">Importe</label>
+        <input id="amount" type="text" inputmode="decimal" value="100" autocomplete="off">
+      </div>
+      <span class="pill" id="fromPill">EUR</span>
+    </div>
+
+    <div class="divider"><button id="swap" title="Invertir conversión" aria-label="Invertir conversión">⇅</button></div>
+
+    <div class="row">
+      <div class="field">
+        <span class="cap">Recibes</span>
+        <div class="result" id="result">—</div>
+      </div>
+      <span class="pill" id="toPill"><select id="currency" aria-label="Divisa"></select></span>
+    </div>
+    <div class="rate-line" id="rateLine"></div>
+  </section>
+
+  <section class="chart-card" aria-label="Evolución">
+    <div class="chart-head">
+      <h2 id="chartTitle">EUR / USD</h2>
+      <span class="change" id="change"></span>
+      <div class="ranges" role="group" aria-label="Periodo">
+        <button data-days="30" aria-pressed="true">1M</button>
+        <button data-days="90" aria-pressed="false">3M</button>
+        <button data-days="365" aria-pressed="false">1A</button>
+      </div>
+    </div>
+    <svg class="chart" id="chart" viewBox="0 0 600 160" preserveAspectRatio="none" role="img" aria-label="Gráfico histórico"></svg>
+  </section>
+
+  <section aria-label="Todas las divisas">
+    <div class="list-head">
+      <h2>1 EUR equivale a</h2>
+      <input class="search" id="search" type="search" placeholder="Buscar divisa" aria-label="Buscar divisa">
+    </div>
+    <ul class="rates" id="rates"></ul>
+  </section>
+
+  <footer>
+    Tipos de referencia del Banco Central Europeo vía <a href="https://frankfurter.dev/es/" target="_blank" rel="noopener">Frankfurter</a>.
+    El BCE publica los tipos una vez al día laborable, hacia las 16:00 CET; la página comprueba si hay datos nuevos cada 5 minutos.
+  </footer>
+</div>
+
+<script>
+const API = "https://api.frankfurter.dev/v1";
+const $ = id => document.getElementById(id);
+const state = { rates: {}, names: {}, date: null, target: "USD", inverse: false, days: 30 };
+
+try { const s = JSON.parse(localStorage.getItem("cambio-euro") || "{}"); Object.assign(state, s); } catch {}
+const save = () => { try { localStorage.setItem("cambio-euro", JSON.stringify({ target: state.target, inverse: state.inverse, days: state.days })); } catch {} };
+
+const fmt = (n, max = 4) => new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 6 : max }).format(n);
+const parseAmount = v => {
+  const s = String(v).trim();
+  return parseFloat(s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s) || 0;
+};
+
+function setStatus(text, kind = "ok") {
+  $("status").textContent = text;
+  $("dot").className = "dot" + (kind === "ok" ? "" : " " + kind);
+}
+
+async function loadLatest() {
+  setStatus("Actualizando…", "loading");
+  try {
+    const [latest, names] = await Promise.all([
+      fetch(`${API}/latest?base=EUR`).then(r => { if (!r.ok) throw r; return r.json(); }),
+      Object.keys(state.names).length ? state.names : fetch(`${API}/currencies`).then(r => r.json())
+    ]);
+    const changed = latest.date !== state.date;
+    state.rates = latest.rates; state.names = names; state.date = latest.date;
+    if (!state.rates[state.target]) state.target = "USD";
+    const d = new Date(latest.date + "T12:00:00");
+    setStatus("Tipos del " + d.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" }));
+    fillSelect(); convert(); renderList();
+    if (changed) loadHistory();
+  } catch (e) {
+    setStatus("Sin conexión con la API. Reintentando…", "err");
+  }
+}
+
+function fillSelect() {
+  const sel = $("currency");
+  sel.innerHTML = Object.keys(state.rates).sort().map(c => `<option value="${c}">${c}</option>`).join("");
+  sel.value = state.target;
+}
+
+function convert() {
+  const rate = state.rates[state.target];
+  if (!rate) return;
+  const amt = parseAmount($("amount").value);
+  const out = state.inverse ? amt / rate : amt * rate;
+  const outCode = state.inverse ? "EUR" : state.target;
+  $("result").textContent = fmt(out, 2) + " " + outCode;
+  $("rateLine").textContent = state.inverse
+    ? `1 ${state.target} = ${fmt(1 / rate)} EUR · ${state.names[state.target] || ""}`
+    : `1 EUR = ${fmt(rate)} ${state.target} · ${state.names[state.target] || ""}`;
+}
+
+function renderList() {
+  const q = $("search").value.trim().toLowerCase();
+  $("rates").innerHTML = Object.entries(state.rates)
+    .filter(([c]) => !q || c.toLowerCase().includes(q) || (state.names[c] || "").toLowerCase().includes(q))
+    .map(([c, r]) => `<li tabindex="0" data-c="${c}" class="${c === state.target ? "active" : ""}">
+        <span class="code">${c}</span><span class="name">${state.names[c] || ""}</span><span class="val">${fmt(r)}</span></li>`)
+    .join("") || `<li style="cursor:default"><span></span><span class="name">Ninguna divisa coincide con “${q}”.</span><span></span></li>`;
+}
+
+function setFromPills() {
+  if (state.inverse) {
+    $("fromPill").replaceChildren($("currency"));
+    $("toPill").textContent = "EUR";
+  } else {
+    $("toPill").replaceChildren($("currency"));
+    $("fromPill").textContent = "EUR";
+  }
+}
+
+async function loadHistory() {
+  const end = new Date();
+  const start = new Date(end - state.days * 864e5);
+  const iso = d => d.toISOString().slice(0, 10);
+  $("chartTitle").textContent = `EUR / ${state.target}`;
+  try {
+    const data = await fetch(`${API}/${iso(start)}..?base=EUR&symbols=${state.target}`).then(r => r.json());
+    const pts = Object.entries(data.rates).map(([d, v]) => [d, v[state.target]]).filter(p => p[1] != null);
+    drawChart(pts);
+  } catch { $("chart").innerHTML = ""; }
+}
+
+function drawChart(pts) {
+  const svg = $("chart");
+  if (pts.length < 2) { svg.innerHTML = ""; $("change").textContent = ""; return; }
+  const W = 600, H = 160, padT = 12, padB = 22;
+  const vals = pts.map(p => p[1]);
+  const min = Math.min(...vals), max = Math.max(...vals), span = (max - min) || 1;
+  const x = i => (i / (pts.length - 1)) * W;
+  const y = v => padT + (1 - (v - min) / span) * (H - padT - padB);
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[1]).toFixed(1)}`).join("");
+  const area = `${line}L${W},${H - padB}L0,${H - padB}Z`;
+  const first = vals[0], last = vals[vals.length - 1], pct = (last - first) / first * 100;
+  const fd = s => new Date(s + "T12:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  svg.innerHTML = `
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+    </linearGradient></defs>
+    <line x1="0" x2="${W}" y1="${y(max)}" y2="${y(max)}" stroke="var(--line)" stroke-dasharray="3 4"/>
+    <line x1="0" x2="${W}" y1="${y(min)}" y2="${y(min)}" stroke="var(--line)" stroke-dasharray="3 4"/>
+    <path d="${area}" fill="url(#g)"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+    <circle cx="${x(pts.length - 1)}" cy="${y(last)}" r="4" fill="var(--accent)"/>
+    <text class="axis" x="0" y="${H - 4}">${fd(pts[0][0])}</text>
+    <text class="axis" x="${W}" y="${H - 4}" text-anchor="end">${fd(pts[pts.length - 1][0])}</text>`;
+  $("change").className = "change " + (pct >= 0 ? "up" : "down");
+  $("change").textContent = `${pct >= 0 ? "▲" : "▼"} ${fmt(Math.abs(pct), 2)} %  ·  mín ${fmt(min)}  máx ${fmt(max)}`;
+}
+
+function selectCurrency(c) {
+  state.target = c; $("currency").value = c; save();
+  convert(); renderList(); loadHistory();
+}
+
+$("amount").addEventListener("input", convert);
+$("currency").addEventListener("change", e => selectCurrency(e.target.value));
+$("search").addEventListener("input", renderList);
+$("swap").addEventListener("click", () => { state.inverse = !state.inverse; save(); setFromPills(); convert(); });
+$("rates").addEventListener("click", e => { const li = e.target.closest("li[data-c]"); if (li) selectCurrency(li.dataset.c); });
+$("rates").addEventListener("keydown", e => { const li = e.target.closest("li[data-c]"); if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selectCurrency(li.dataset.c); } });
+document.querySelectorAll(".ranges button").forEach(b => {
+  b.setAttribute("aria-pressed", String(+b.dataset.days === state.days));
+  b.addEventListener("click", () => {
+    state.days = +b.dataset.days; save();
+    document.querySelectorAll(".ranges button").forEach(o => o.setAttribute("aria-pressed", String(o === b)));
+    loadHistory();
+  });
+});
+
+setFromPills();
+loadLatest();
+setInterval(loadLatest, 5 * 60 * 1000);
+</script>
+</body>
+</html>
